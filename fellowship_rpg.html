@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Fellowship of the Rizz — A Text Adventure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --parchment: #f5edd8;
+    --parchment-dark: #e8d9b8;
+    --parchment-deeper: #d4c49a;
+    --ink: #1a1006;
+    --ink-mid: #3a2810;
+    --gold: #8b6800;
+    --gold-bright: #c49a1a;
+    --gold-light: #f0d070;
+    --red: #7a1500;
+    --green-dark: #1a3a1a;
+    --shadow: rgba(20,10,0,0.4);
+    --glow: rgba(196,154,26,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0d0800;
+    color: var(--ink);
+    font-family: 'Lora', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── STARFIELD BACKGROUND ── */
+  #starfield {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 20% 50%, #1a0d00 0%, #0d0800 50%, #000 100%);
+    overflow: hidden;
+  }
+  .star {
+    position: absolute; border-radius: 50%;
+    background: #f0d070; animation: twinkle var(--dur, 3s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  @keyframes twinkle {
+    0%,100% { opacity: var(--min-op, 0.2); transform: scale(1); }
+    50% { opacity: var(--max-op, 0.9); transform: scale(1.3); }
+  }
+
+  /* ── MAIN CONTAINER ── */
+  #app {
+    position: relative; z-index: 10;
+    max-width: 780px; margin: 0 auto;
+    padding: 20px 16px 60px;
+    min-height: 100vh;
+  }
+
+  /* ── SCREEN SYSTEM ── */
+  .screen { display: none; animation: fadeIn 0.6s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── BOOK PANEL ── */
+  .book-panel {
+    background: var(--parchment);
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    box-shadow:
+      0 0 0 4px var(--parchment-dark),
+      0 0 0 6px var(--gold),
+      0 8px 40px var(--shadow),
+      inset 0 0 60px rgba(139,104,0,0.08);
+    position: relative;
+    overflow: hidden;
+  }
+  .book-panel::before {
+    content: '';
+    position: absolute; inset: 8px;
+    border: 1px solid var(--parchment-deeper);
+    pointer-events: none; z-index: 1;
+  }
+  .book-panel::after {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 10% 10%, rgba(255,240,180,0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 90%, rgba(139,104,0,0.08) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+  .panel-inner { position: relative; z-index: 2; padding: 36px 40px; }
+
+  /* ── TYPOGRAPHY ── */
+  .title-main {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(22px, 5vw, 34px);
+    color: var(--gold);
+    text-align: center; line-height: 1.2;
+    text-shadow: 0 2px 8px rgba(139,104,0,0.4);
+    letter-spacing: 0.02em;
+  }
+  .title-sub {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(12px, 2.5vw, 16px);
+    color: var(--ink-mid); text-align: center;
+    letter-spacing: 0.12em; margin-top: 6px;
+  }
+  .chapter-heading {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(13px, 2.8vw, 17px);
+    color: var(--gold); text-align: center;
+    letter-spacing: 0.08em; margin-bottom: 4px;
+  }
+  .chapter-sub {
+    font-family: 'Lora', serif; font-style: italic;
+    font-size: clamp(11px, 2.2vw, 13px);
+    color: var(--ink-mid); text-align: center;
+    margin-bottom: 16px;
+  }
+  .narrative {
+    font-size: clamp(13px, 2.4vw, 15.5px);
+    line-height: 1.85; color: var(--ink);
+    margin-bottom: 14px; text-align: justify;
+  }
+  .narrative em { color: var(--red); font-style: italic; }
+  .narrative strong { color: var(--ink); font-weight: 700; }
+  .narrative .gold { color: var(--gold); font-weight: 600; }
+
+  /* ── ORNAMENT ── */
+  .ornament {
+    text-align: center; color: var(--gold);
+    font-size: 18px; margin: 16px 0;
+    letter-spacing: 6px;
+  }
+  .rule {
+    border: none; border-top: 1px solid var(--gold);
+    margin: 16px auto; width: 85%; opacity: 0.6;
+  }
+
+  /* ── STAT BAR ── */
+  #stat-bar {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .stat {
+    background: var(--parchment-dark);
+    border: 1px solid var(--gold);
+    border-radius: 3px; padding: 5px 10px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px; color: var(--ink-mid);
+    display: flex; align-items: center; gap: 5px;
+    flex: 1; min-width: 90px;
+  }
+  .stat-label { opacity: 0.7; }
+  .stat-value { color: var(--gold); font-weight: 600; margin-left: auto; }
+  .stat-icon { font-size: 13px; }
+
+  /* ── CHOICE BUTTONS ── */
+  .choices { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .choice-btn {
+    background: var(--parchment-dark);
+    border: 1px solid var(--gold);
+    border-radius: 3px;
+    padding: 13px 18px;
+    font-family: 'Lora', serif;
+    font-size: clamp(12px, 2.3vw, 14px);
+    color: var(--ink); cursor: pointer;
+    text-align: left; line-height: 1.5;
+    transition: all 0.2s ease;
+    position: relative; overflow: hidden;
+  }
+  .choice-btn::before {
+    content: '❧';
+    color: var(--gold); margin-right: 10px;
+    font-size: 14px; opacity: 0.7;
+  }
+  .choice-btn:hover {
+    background: var(--parchment);
+    border-color: var(--gold-bright);
+    box-shadow: 0 0 12px var(--glow), inset 0 0 20px rgba(196,154,26,0.06);
+    transform: translateX(4px);
+    color: var(--ink);
+  }
+  .choice-btn:active { transform: translateX(2px); }
+  .choice-btn .choice-effect {
+    display: block; font-size: 11px;
+    font-family: 'Cinzel', serif;
+    color: var(--gold); margin-top: 4px;
+    opacity: 0.8; letter-spacing: 0.05em;
+  }
+  .choice-btn.danger { border-color: var(--red); }
+  .choice-btn.danger::before { color: var(--red); content: '⚔'; }
+  .choice-btn.danger:hover { box-shadow: 0 0 12px rgba(122,21,0,0.3); }
+
+  /* ── SPEECH BUBBLES ── */
+  .message-feed { margin: 16px 0; display: flex; flex-direction: column; gap: 10px; }
+  .msg {
+    display: flex; gap: 10px; align-items: flex-start;
+    animation: msgIn 0.3s ease;
+  }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .msg-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+    background: var(--parchment-dark);
+  }
+  .msg-bubble {
+    background: var(--parchment-dark);
+    border: 1px solid var(--parchment-deeper);
+    border-radius: 0 8px 8px 8px;
+    padding: 9px 13px; max-width: 85%;
+  }
+  .msg-name {
+    font-family: 'Cinzel', serif; font-size: 10px;
+    color: var(--gold); letter-spacing: 0.06em;
+    margin-bottom: 3px; font-weight: 600;
+  }
+  .msg-text { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+  .msg-time { font-size: 10px; color: var(--ink-mid); opacity: 0.5; margin-top: 3px; }
+  .msg.player { flex-direction: row-reverse; }
+  .msg.player .msg-bubble {
+    background: rgba(139,104,0,0.12);
+    border-color: rgba(139,104,0,0.3);
+    border-radius: 8px 0 8px 8px;
+  }
+  .msg.player .msg-name { color: var(--ink-mid); }
+
+  /* ── LORE KEEPER NARRATION ── */
+  .lore-keeper {
+    background: rgba(139,104,0,0.07);
+    border-left: 3px solid var(--gold);
+    padding: 12px 16px; margin: 14px 0;
+    border-radius: 0 4px 4px 0;
+    font-style: italic;
+    font-size: clamp(12px, 2.2vw, 14px);
+    line-height: 1.75; color: var(--ink-mid);
+  }
+  .lore-keeper .lk-label {
+    font-family: 'Cinzel', serif; font-style: normal;
+    font-size: 10px; color: var(--gold);
+    letter-spacing: 0.1em; display: block;
+    margin-bottom: 5px; opacity: 0.8;
+  }
+
+  /* ── DICE ROLL ── */
+  .dice-container {
+    text-align: center; margin: 20px 0;
+    padding: 20px;
+    background: rgba(139,104,0,0.05);
+    border: 1px dashed var(--gold);
+    border-radius: 4px;
+  }
+  .dice { font-size: 52px; display: inline-block; cursor: pointer;
+    transition: transform 0.1s; user-select: none; }
+  .dice:hover { transform: scale(1.1); }
+  .dice.rolling { animation: roll 0.6s ease; }
+  @keyframes roll {
+    0% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(180deg) scale(1.3); }
+    75% { transform: rotate(360deg) scale(0.9); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+  .dice-result {
+    font-family: 'Cinzel', serif; font-size: 22px;
+    color: var(--gold); margin-top: 10px;
+  }
+  .dice-label { font-size: 13px; color: var(--ink-mid); margin-bottom: 8px; }
+
+  /* ── INVENTORY / JOURNAL ── */
+  .inventory {
+    background: var(--parchment-dark);
+    border: 1px solid var(--parchment-deeper);
+    border-radius: 3px; padding: 12px 16px;
+    margin: 12px 0;
+  }
+  .inventory-title {
+    font-family: 'Cinzel', serif; font-size: 11px;
+    color: var(--gold); letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .inventory-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .item {
+    background: var(--parchment);
+    border: 1px solid var(--gold);
+    border-radius: 3px; padding: 4px 10px;
+    font-size: 12px; color: var(--ink);
+  }
+  .item .item-icon { margin-right: 4px; }
+
+  /* ── PROGRESS MAP ── */
+  .progress-map {
+    display: flex; justify-content: center;
+    gap: 0; margin: 16px 0; flex-wrap: wrap;
+  }
+  .progress-node {
+    display: flex; flex-direction: column;
+    align-items: center; position: relative;
+  }
+  .progress-node:not(:last-child)::after {
+    content: '────';
+    color: var(--parchment-deeper);
+    font-size: 10px; margin: 0 -2px;
+    line-height: 1; align-self: center;
+    margin-top: -16px;
+  }
+  .progress-node.done::after { color: var(--gold); }
+  .node-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--parchment-deeper);
+    background: var(--parchment);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .progress-node.done .node-dot { border-color: var(--gold); background: rgba(139,104,0,0.15); }
+  .progress-node.current .node-dot { border-color: var(--gold-bright); background: rgba(196,154,26,0.2); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 var(--glow); } 50% { box-shadow: 0 0 0 6px transparent; } }
+  .node-label { font-size: 9px; color: var(--ink-mid); margin-top: 3px; text-align: center; max-width: 50px; font-family: 'Cinzel', serif; }
+
+  /* ── NOTIFICATION TOAST ── */
+  #toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--gold-light);
+    font-family: 'Cinzel', serif; font-size: 13px;
+    padding: 12px 24px; border-radius: 3px;
+    border: 1px solid var(--gold);
+    box-shadow: 0 4px 20px var(--shadow);
+    z-index: 1000; opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    letter-spacing: 0.05em; text-align: center;
+    max-width: 90vw;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── TITLE SCREEN EXTRAS ── */
+  .title-ornament {
+    font-size: 26px; text-align: center;
+    color: var(--gold); letter-spacing: 10px;
+    margin: 10px 0;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0%,100% { text-shadow: 0 0 10px rgba(196,154,26,0.2); }
+    50% { text-shadow: 0 0 20px rgba(196,154,26,0.6), 0 0 40px rgba(196,154,26,0.2); }
+  }
+  .start-btn {
+    display: block; width: 100%; max-width: 280px;
+    margin: 24px auto 0;
+    background: var(--gold);
+    color: var(--parchment);
+    border: 2px solid var(--gold-bright);
+    border-radius: 3px; padding: 14px 28px;
+    font-family: 'Cinzel', serif; font-size: 15px;
+    letter-spacing: 0.12em; cursor: pointer;
+    transition: all 0.2s ease;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 16px rgba(139,104,0,0.4);
+  }
+  .start-btn:hover {
+    background: var(--gold-bright);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(196,154,26,0.4);
+  }
+
+  /* ── CHARACTER SELECT ── */
+  .char-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  @media (max-width: 480px) { .char-grid { grid-template-columns: 1fr; } }
+  .char-card {
+    background: var(--parchment-dark);
+    border: 1.5px solid var(--parchment-deeper);
+    border-radius: 4px; padding: 14px;
+    cursor: pointer; transition: all 0.2s ease;
+    position: relative;
+  }
+  .char-card:hover, .char-card.selected {
+    border-color: var(--gold);
+    background: var(--parchment);
+    box-shadow: 0 0 16px var(--glow);
+  }
+  .char-card.selected::after {
+    content: '✦'; position: absolute; top: 8px; right: 10px;
+    color: var(--gold); font-size: 14px;
+  }
+  .char-emoji { font-size: 28px; margin-bottom: 6px; }
+  .char-name { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); margin-bottom: 4px; }
+  .char-desc { font-size: 12px; line-height: 1.5; color: var(--ink-mid); }
+  .char-stat { margin-top: 8px; }
+  .char-stat-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+  .char-stat-label { color: var(--ink-mid); font-family: 'Cinzel', serif; letter-spacing: 0.04em; }
+  .char-stat-pip { display: flex; gap: 2px; }
+  .pip { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--gold); }
+  .pip.filled { background: var(--gold); }
+
+  /* ── NAME INPUT ── */
+  .name-input {
+    width: 100%; padding: 10px 14px;
+    background: var(--parchment);
+    border: 1px solid var(--gold);
+    border-radius: 3px;
+    font-family: 'Lora', serif; font-size: 15px;
+    color: var(--ink); margin: 12px 0;
+    outline: none;
+  }
+  .name-input:focus { box-shadow: 0 0 10px var(--glow); }
+
+  /* ── ENDING SCREEN ── */
+  .ending-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(18px, 4vw, 26px);
+    color: var(--gold); text-align: center;
+    margin-bottom: 8px; line-height: 1.3;
+  }
+  .ending-verse {
+    font-style: italic; text-align: center;
+    color: var(--red); line-height: 2;
+    font-size: clamp(12px, 2.4vw, 14.5px);
+    margin: 16px 0;
+  }
+  .scroll-reveal { opacity: 0; animation: scrollReveal 0.8s ease forwards; }
+  .scroll-reveal:nth-child(1) { animation-delay: 0.1s; }
+  .scroll-reveal:nth-child(2) { animation-delay: 0.3s; }
+  .scroll-reveal:nth-child(3) { animation-delay: 0.5s; }
+  .scroll-reveal:nth-child(4) { animation-delay: 0.7s; }
+  .scroll-reveal:nth-child(5) { animation-delay: 0.9s; }
+  @keyframes scrollReveal { to { opacity: 1; } }
+
+  /* ── ACHIEVEMENT BADGE ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(139,104,0,0.12);
+    border: 1px solid var(--gold);
+    border-radius: 3px; padding: 8px 14px;
+    margin: 6px 4px;
+    font-family: 'Cinzel', serif; font-size: 11px;
+    color: var(--gold); letter-spacing: 0.05em;
+  }
+  .badge-icon { font-size: 16px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #1a0d00; }
+  ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 4px; }
+
+  /* ── UTILITY ── */
+  .text-center { text-align: center; }
+  .mt-12 { margin-top: 12px; }
+  .mb-8 { margin-bottom: 8px; }
+  .small-italic { font-style: italic; font-size: 12px; color: var(--ink-mid); }
+  .highlight-box {
+    border: 1px solid var(--gold); border-radius: 3px;
+    padding: 14px 18px; margin: 14px 0;
+    background: rgba(139,104,0,0.05);
+  }
+</style>
+</head>
+<body>
+
+<div id="starfield"></div>
+<div id="app">
+  <!-- SCREENS INJECTED BY JS -->
+</div>
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════════
+const G = {
+  playerName: '',
+  playerClass: null,
+  // Stats
+  aura: 50,
+  wisdom: 50,
+  rizz: 50,
+  // Relationships
+  rel: { lukas: 0, calli: 0, amber: 0, charlotte: 0, jordan: 0 },
+  // Inventory
+  items: [],
+  // Progress
+  chapter: 0,
+  scene: 0,
+  endings: [],
+  // Flags
+  flags: {},
+  // Score
+  loool: 0,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CHARACTERS
+// ═══════════════════════════════════════════════════════════════
+const CHARS = {
+  lukas:    { name: 'Lukas',    emoji: '📷', color: '#8b4a00', title: 'The Photographus' },
+  calli:    { name: 'Calli',    emoji: '💄', color: '#6b3a6b', title: 'The Aged Wise One' },
+  amber:    { name: 'Amber',    emoji: '🥂', color: '#8b6800', title: 'Of the Coast' },
+  charlotte:{ name: 'Charlotte',emoji: '🦊', color: '#2a5a2a', title: 'Of the Distant Realm' },
+  jordan:   { name: 'Jordan',   emoji: '👻', color: '#3a3a5a', title: 'The Vanishing One' },
+};
+
+const PLAYER_CLASSES = [
+  {
+    id: 'lurker',
+    emoji: '🫥',
+    name: 'The Lurker',
+    desc: 'Reads everything. Says nothing. Has seen too much.',
+    stats: { aura: 40, wisdom: 70, rizz: 30 },
+    pips: { aura: 2, wisdom: 4, rizz: 1 },
+    bonus: 'You notice details others miss. +2 to all insight checks.',
+  },
+  {
+    id: 'chaotic',
+    emoji: '🌪️',
+    name: 'The Chaotic Good',
+    desc: 'Sends messages at 2am. Somehow always right.',
+    stats: { aura: 70, wisdom: 30, rizz: 60 },
+    pips: { aura: 4, wisdom: 1, rizz: 3 },
+    bonus: 'Your chaos is infectious. Lukas and Amber start +10.',
+  },
+  {
+    id: 'analyst',
+    emoji: '🧐',
+    name: 'The Analyst',
+    desc: 'Has opinions about everything. Especially Topshop.',
+    stats: { aura: 30, wisdom: 70, rizz: 50 },
+    pips: { aura: 1, wisdom: 4, rizz: 3 },
+    bonus: 'Calli respects you immediately. Charlotte notices.',
+  },
+  {
+    id: 'vibes',
+    emoji: '✨',
+    name: 'Pure Vibes',
+    desc: 'No one is quite sure what you do. You have excellent energy.',
+    stats: { aura: 80, wisdom: 40, rizz: 80 },
+    pips: { aura: 4, wisdom: 2, rizz: 4 },
+    bonus: 'Amber immediately wants to be your best friend.',
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// STARFIELD
+// ═══════════════════════════════════════════════════════════════
+function buildStarfield() {
+  const sf = document.getElementById('starfield');
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%; top:${Math.random()*100}%;
+      --dur:${2+Math.random()*5}s;
+      --delay:${Math.random()*5}s;
+      --min-op:${0.1+Math.random()*0.2};
+      --max-op:${0.5+Math.random()*0.5};
+    `;
+    sf.appendChild(s);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('active'); window.scrollTo(0,0); }
+}
+
+function toast(msg, dur=2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+function pip(n, max=5) {
+  return Array.from({length:max}, (_,i) =>
+    `<span class="pip ${i<n?'filled':''}"></span>`).join('');
+}
+
+function statBar() {
+  const pc = PLAYER_CLASSES.find(c => c.id === G.playerClass);
+  if (!pc) return '';
+  return `
+    <div id="stat-bar">
+      <div class="stat"><span class="stat-icon">✨</span><span class="stat-label">AURA</span><span class="stat-value">${G.aura}</span></div>
+      <div class="stat"><span class="stat-icon">🧠</span><span class="stat-label">WISDOM</span><span class="stat-value">${G.wisdom}</span></div>
+      <div class="stat"><span class="stat-icon">💫</span><span class="stat-label">RIZZ</span><span class="stat-value">${G.rizz}</span></div>
+      <div class="stat"><span class="stat-icon">😂</span><span class="stat-label">LOOOL</span><span class="stat-value">${G.loool}</span></div>
+    </div>`;
+}
+
+function relBar() {
+  return Object.entries(G.rel).map(([k,v]) => {
+    const c = CHARS[k]; const pct = Math.max(0, Math.min(100, 50+v));
+    return `<div class="stat"><span class="stat-icon">${c.emoji}</span><span class="stat-label">${c.name.toUpperCase()}</span><span class="stat-value">${pct}%</span></div>`;
+  }).join('');
+}
+
+function adjustStat(stat, amount) {
+  G[stat] = Math.max(0, Math.min(100, G[stat] + amount));
+}
+function adjustRel(char, amount) {
+  G.rel[char] = Math.max(-50, Math.min(50, G.rel[char] + amount));
+}
+function addItem(item) {
+  if (!G.items.includes(item)) { G.items.push(item); toast(`✦ Item acquired: ${item}`); }
+}
+
+function msgHtml(char, text, time) {
+  const c = CHARS[char];
+  return `<div class="msg">
+    <div class="msg-avatar">${c.emoji}</div>
+    <div class="msg-bubble">
+      <div class="msg-name">${c.name.toUpperCase()} · ${c.title}</div>
+      <div class="msg-text">${text}</div>
+      <div class="msg-time">${time || 'just now'}</div>
+    </div>
+  </div>`;
+}
+
+function playerMsg(text) {
+  return `<div class="msg player">
+    <div class="msg-avatar">🧑</div>
+    <div class="msg-bubble">
+      <div class="msg-name">${G.playerName.toUpperCase() || 'YOU'}</div>
+      <div class="msg-text">${text}</div>
+      <div class="msg-time">just now</div>
+    </div>
+  </div>`;
+}
+
+function lk(text) {
+  return `<div class="lore-keeper"><span class="lk-label">✦ THE LORE KEEPER OBSERVES ✦</span>${text}</div>`;
+}
+
+function progressMap(current) {
+  const nodes = [
+    {label:'The Calling', icon:'📜'},
+    {label:'The Sardine', icon:'🐟'},
+    {label:'Bruce Lore', icon:'⚔️'},
+    {label:'The Coaster', icon:'🥂'},
+    {label:'Emma Quest', icon:'🎵'},
+    {label:'Final Test', icon:'⭐'},
+  ];
+  return `<div class="progress-map">${nodes.map((n,i) =>
+    `<div class="progress-node ${i<current?'done':i===current?'current':''}">
+      <div class="node-dot">${n.icon}</div>
+      <div class="node-label">${n.label}</div>
+    </div>`).join('')}</div>`;
+}
+
+function diceRoll() {
+  return Math.floor(Math.random() * 20) + 1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCREENS
+// ═══════════════════════════════════════════════════════════════
+
+function renderTitle() {
+  document.getElementById('app').innerHTML = `
+  <div class="screen active" id="screen-title">
+    <div class="book-panel">
+      <div class="panel-inner">
+        <div class="title-ornament">✦ ✧ ✦ ✧ ✦</div>
+        <h1 class="title-main">THE FELLOWSHIP<br>OF THE RIZZ</h1>
+        <p class="title-sub">An Interactive Chronicle — A Text Adventure of Considerable Dignity</p>
+        <hr class="rule">
+        <div class="ornament" style="font-size:13px; letter-spacing:3px; margin:10px 0;">
+          A WhatsApp Group Chat · A Sardine · Five People · One Lore Keeper
+        </div>
+        <hr class="rule">
+        <p class="narrative" style="text-align:center; font-style:italic; margin:16px 0;">
+          You have been added to a group chat. You do not know why.<br>
+          The group is called <em>Seniorita Forkstonita</em>.<br>
+          You do not ask. You simply accept.
+        </p>
+        <p class="narrative" style="text-align:center; font-size:13px;">
+          What follows is a choose-your-own-adventure in five chapters,<br>
+          in which you must earn the trust of the fellowship,<br>
+          survive the lore of Bruce, assist in the Emma situation,<br>
+          and under no circumstances upset Alan Carr.
+        </p>
+        <div class="title-ornament" style="font-size:14px; margin-top:16px;">✦ ✧ ✦</div>
+        <button class="start-btn" onclick="renderCharSelect()">BEGIN THE CHRONICLE</button>
+        <p class="small-italic text-center mt-12">Save the sardine. Earn your place. No cap.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderCharSelect() {
+  document.getElementById('app').innerHTML = `
+  <div class="screen active" id="screen-charselect">
+    <div class="book-panel">
+      <div class="panel-inner">
+        <h2 class="chapter-heading">CHOOSE YOUR FELLOWSHIP ARCHETYPE</h2>
+        <p class="chapter-sub">Who are you in a group chat? Be honest. This matters.</p>
+        <div class="char-grid" id="char-grid">
+          ${PLAYER_CLASSES.map(c => `
+          <div class="char-card" id="card-${c.id}" onclick="selectClass('${c.id}')">
+            <div class="char-emoji">${c.emoji}</div>
+            <div class="char-name">${c.name}</div>
+            <div class="char-desc">${c.desc}</div>
+            <div class="char-stat">
+              <div class="char-stat-row"><span class="char-stat-label">AURA</span><span class="char-stat-pip">${pip(c.pips.aura)}</span></div>
+              <div class="char-stat-row"><span class="char-stat-label">WISDOM</span><span class="char-stat-pip">${pip(c.pips.wisdom)}</span></div>
+              <div class="char-stat-row"><span class="char-stat-label">RIZZ</span><span class="char-stat-pip">${pip(c.pips.rizz)}</span></div>
+            </div>
+          </div>`).join('')}
+        </div>
+        <hr class="rule">
+        <p style="font-family:'Cinzel',serif; font-size:11px; color:var(--gold); letter-spacing:0.08em; margin-bottom:6px;">YOUR NAME IN THE SCROLLS</p>
+        <input class="name-input" type="text" id="name-input" placeholder="Enter your name, traveller..." maxlength="24">
+        <button class="start-btn" onclick="confirmChar()" style="max-width:100%; margin-top:8px;">ENTER THE FELLOWSHIP</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function selectClass(id) {
+  document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-'+id).classList.add('selected');
+  G.playerClass = id;
+  const pc = PLAYER_CLASSES.find(c => c.id === id);
+  G.aura = pc.stats.aura; G.wisdom = pc.stats.wisdom; G.rizz = pc.stats.rizz;
+  if (id === 'chaotic') { adjustRel('lukas',10); adjustRel('amber',10); }
+  if (id === 'analyst') { adjustRel('calli',10); adjustRel('charlotte',8); }
+  if (id === 'vibes')   { adjustRel('amber',15); }
+}
+
+function confirmChar() {
+  const name = document.getElementById('name-input').value.trim();
+  if (!G.playerClass) { toast('✦ Choose your archetype first, traveller.'); return; }
+  if (!name) { toast('✦ The scrolls require a name.'); return; }
+  G.playerName = name;
+  toast(`✦ Welcome, ${name}. The Fellowship awaits.`);
+  setTimeout(() => renderChapter1(), 800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAPTER 1 — THE CALLING
+// ═══════════════════════════════════════════════════════════════
+function renderChapter1() {
+  G.chapter = 1;
+  document.getElementById('app').innerHTML = `
+  <div class="screen active" id="screen-ch1">
+    <div class="book-panel">
+      <div class="panel-inner">
+        ${progressMap(0)}
+        ${statBar()}
+        <hr class="rule">
+        ${ch1Scene1()}
+      </div>
+    </div>
+  </div>`;
+}
+
+function ch1Scene1() {
+  return `
+    <h2 class="chapter-heading">CHAPTER THE FIRST</h2>
+    <p class="chapter-sub">In Which You Are Added to a Group and Must Immediately Prove Yourself</p>
+    ${lk(`You have, without warning or explanation, been added to a WhatsApp group called
+    <em>Seniorita Forkstonita</em>. The group has a profile picture. In the profile picture is
+    a man's eye. In the eye is a sardine. You decide, correctly, not to mention the sardine yet.`)}
+    <div class="message-feed">
+      ${msgHtml('lukas', 'hello', '17:01')}
+      ${msgHtml('lukas', "im making another new one that im allowed to talk in lol", '17:01')}
+      ${msgHtml('amber', "Yaaay we're back 🎉", '17:02')}
+      ${msgHtml('charlotte', 'Testing testing. Friends are you there', '17:02')}
+      ${msgHtml('lukas', 'theres no one left to fall out with now so its ok', '17:03')}
+      ${msgHtml('calli', '😂😂😂 I am still laughing at that', '17:37')}
+    </div>
+    ${lk(`The group is looking at you. Well — not looking. But the blinking cursor of expectation
+    hangs in the air. Your first message will define everything. Choose wisely.
+    Or don't. Statistically, half of all group chat introductions are a disaster.`)}
+    <div class="choices">
+      <button class="choice-btn" onclick="ch1Choice('hello')">
+        Type simply: "hello"
+        <span class="choice-effect">+5 Aura (understated energy) · +5 Lukas</span>
+      </button>
+      <button class="choice-btn" onclick="ch1Choice('eye')">
+        "Is that a sardine in the profile picture"
+        <span class="choice-effect">+15 Rizz · +10 all · Risk: High</span>
+      </button>
+      <button class="choice-btn" onclick="ch1Choice('lol')">
+        Send a single "lol" and nothing else
+        <span class="choice-effect">+8 Wisdom · Intrigues Charlotte</span>
+      </button>
+      <button class="choice-btn" onclick="ch1Choice('lurk')">
+        Say nothing. Simply read. Become the void.
+        <span class="choice-effect">Jordan awakens. +20 Jordan</span>
+      </button>
+    </div>`;
+}
+
+function ch1Choice(c) {
+  let response = '';
+  if (c === 'hello') {
+    adjustStat('aura',5); adjustRel('lukas',5);
+    response = `
+      ${playerMsg('hello')}
+      ${msgHtml('lukas', 'oh good more of them', '17:38')}
+      ${msgHtml('amber', 'hello!! welcome to the chaos x', '17:38')}
+      ${lk(`A measured opening. The Lore Keeper approves. Lukas, specifically, approves —
+      which is notable, because Lukas does not approve of many things today.`)}`;
+  } else if (c === 'eye') {
+    adjustStat('rizz',15); adjustRel('lukas',10); adjustRel('amber',10);
+    adjustRel('calli',10); adjustRel('charlotte',10); G.loool += 2;
+    response = `
+      ${playerMsg('Is that a sardine in the profile picture')}
+      ${msgHtml('lukas', 'LOOOOL', '17:38')}
+      ${msgHtml('amber', 'HAHAHA I was waiting for someone to say it', '17:38')}
+      ${msgHtml('calli', 'an unsolicited sarda 😂', '17:39')}
+      ${msgHtml('charlotte', 'I have so many questions', '17:39')}
+      ${lk(`Extraordinary. You have noticed the sardine. You have said the sardine.
+      The fellowship has LOOOL'd. This is, statistically, the best possible opening.
+      The Lore Keeper notes this in the official record with barely concealed delight.`)}`;
+    G.flags.sardineObserver = true;
+    addItem('🐟 The Unsolicited Sarda (Observed)');
+  } else if (c === 'lol') {
+    adjustStat('wisdom',8); adjustRel('charlotte',10); adjustRel('jordan',5);
+    response = `
+      ${playerMsg('lol')}
+      ${msgHtml('charlotte', 'exactly', '17:38')}
+      ${msgHtml('lukas', 'right', '17:38')}
+      ${msgHtml('amber', 'this is already the energy', '17:39')}
+      ${lk(`A single 'lol' in the right context communicates more than three paragraphs.
+      Charlotte, in particular, has registered this. Charlotte registers everything.`)}`;
+  } else {
+    adjustRel('jordan',20); G.wisdom += 5;
+    response = `
+      ${lk(`You say nothing. You read. You observe. The fellowship goes about its business,
+      unaware they are being studied. Jordan, somehow, feels this. Jordan also says nothing.
+      Two voids, regarding each other across the digital ether. Beautiful, in a way.`)}
+      ${msgHtml('jordan', 'lol', '17:40')}
+      ${lk(`Jordan has spoken. Jordan's message, unlike all previous Jordan messages, has not been
+      deleted. This is unprecedented. This is, the Lore Keeper suspects, your doing.`)}`;
+    G.flags.jordanAlliance = true;
+    addItem('👻 Jordan\'s Undeleted Message (Historic Artefact)');
+  }
+  document.getElementById('screen-ch1').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(0)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE FIRST — CONTINUED</h2>
+    <div class="message-feed">${response}</div>
+    <hr class="rule">
+    ${lk(`Now you must face the next test. The fellowship is discussing the sardine at some length.
+    Lukas has explained that he asked an AI to remove his glasses glare. Charlotte has said AI will
+    barcode off somewhere into another universe. You have an opinion on this.`)}
+    <div class="choices">
+      <button class="choice-btn" onclick="ch1Scene2('defend')">
+        "To be fair, removing a glasses glare and inserting a sardine are quite different briefs"
+        <span class="choice-effect">+10 Wisdom · Charlotte approves</span>
+      </button>
+      <button class="choice-btn" onclick="ch1Scene2('chaos')">
+        "Honestly I think it's an improvement"
+        <span class="choice-effect">+15 Rizz · +10 Lukas, Amber</span>
+      </button>
+      <button class="choice-btn" onclick="ch1Scene2('worried')">
+        "I'm just glad it wasn't a mackerel"
+        <span class="choice-effect">+20 all relationships · +3 LOOOL</span>
+      </button>
+    </div>`;
+}
+
+function ch1Scene2(c) {
+  let resp = '';
+  if (c === 'defend') {
+    adjustStat('wisdom',10); adjustRel('charlotte',10);
+    resp = `${playerMsg('To be fair, removing a glasses glare and inserting a sardine are quite different briefs')}
+      ${msgHtml('charlotte', 'yes EXACTLY this is my point about AI', '17:42')}
+      ${msgHtml('calli', 'loool fair point', '17:42')}`;
+  } else if (c === 'chaos') {
+    adjustStat('rizz',15); adjustRel('lukas',10); adjustRel('amber',10); G.loool++;
+    resp = `${playerMsg('Honestly I think it\'s an improvement')}
+      ${msgHtml('lukas', 'EXCUSE me', '17:42')}
+      ${msgHtml('amber', 'LOOOOL they have a point tbf', '17:42')}
+      ${msgHtml('lukas', 'i hate it here', '17:43')}`;
+  } else {
+    adjustRel('lukas',10); adjustRel('amber',10); adjustRel('charlotte',8); adjustRel('calli',8);
+    G.loool += 3;
+    resp = `${playerMsg("I'm just glad it wasn't a mackerel")}
+      ${msgHtml('amber', 'HAHAHAHAHA', '17:42')}
+      ${msgHtml('lukas', 'looooool', '17:42')}
+      ${msgHtml('calli', 'a mackerel would have been so much worse', '17:43')}
+      ${msgHtml('charlotte', 'the SIZE of a mackerel in someone\'s eye', '17:43')}`;
+    addItem('🐟 Mackerel Counterfactual (Intellectual Achievement)');
+  }
+  document.getElementById('screen-ch1').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(1)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE FIRST — CONCLUDED</h2>
+    <div class="message-feed">${resp}</div>
+    ${lk(`You have survived Chapter the First. The sardine has been acknowledged.
+    The fellowship has LOOOL'd. You have not been immediately removed from the group,
+    which, given recent history, the Lore Keeper considers a genuine achievement.`)}
+    <div class="inventory">
+      <div class="inventory-title">✦ YOUR INVENTORY ✦</div>
+      <div class="inventory-items">${G.items.map(i=>`<span class="item">${i}</span>`).join('') || '<span class="item">Nothing yet</span>'}</div>
+    </div>
+    <div class="choices">
+      <button class="start-btn" onclick="renderChapter2()" style="max-width:100%;">PROCEED TO CHAPTER THE SECOND ❧</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAPTER 2 — THE LORE OF BRUCE
+// ═══════════════════════════════════════════════════════════════
+function renderChapter2() {
+  G.chapter = 2;
+  document.getElementById('app').innerHTML = `
+  <div class="screen active" id="screen-ch2">
+    <div class="book-panel">
+      <div class="panel-inner">
+        ${progressMap(2)}
+        ${statBar()}
+        <hr class="rule">
+        <h2 class="chapter-heading">CHAPTER THE SECOND</h2>
+        <p class="chapter-sub">The Lore of Bruce · A Simulated Strangulation · The Comma Incident</p>
+        ${lk(`Three weeks have passed. You have found your footing in the fellowship.
+        You have laughed at the appropriate moments. You have not mentioned the sardine
+        more than twice, which shows restraint. Today, Lukas has arrived in the group
+        with the energy of a man who needs to explain something immediately.`)}
+        <div class="message-feed">
+          ${msgHtml('calli', 'So basically that other group went dead because of Bruce beef. Right?', '18:18')}
+          ${msgHtml('amber', 'That is my understanding. Silly bru', '18:20')}
+          ${msgHtml('lukas', 'I tried to strangle Bruce at pride', '18:21')}
+          ${msgHtml('lukas', 'jk i didnt try and strangle him', '18:21')}
+          ${msgHtml('lukas', 'I pretended to strangle him', '18:22')}
+          ${msgHtml('lukas', 'bruce was playing up', '18:22')}
+          ${msgHtml('lukas', 'he popped off at mark when mark said he forgave him for historic bad behavior', '18:23')}
+          ${msgHtml('lukas', 'and then bruce flipped', '18:23')}
+          ${msgHtml('lukas', 'then the next day text mark blaming me lol', '18:24')}
+          ${msgHtml('lukas', 'and now i hate his guts', '18:24')}
+          ${msgHtml('lukas', 'all very mature', '18:24')}
+          ${msgHtml('lukas', 'im 36 next week!', '18:24')}
+        </div>
+        ${lk(`The Bruce Lore has been delivered. It is a lot. The fellowship is processing.
+        You have approximately thirty seconds before someone needs to respond.
+        Choose your words carefully. Lukas has a low tolerance threshold today.`)}
+        <div class="choices">
+          <button class="choice-btn" onclick="ch2Choice('mature')">
+            "A simulated strangulation is a very mature response to playing up though"
+            <span class="choice-effect">+15 Rizz · Risky</span>
+          </button>
+          <button class="choice-btn" onclick="ch2Choice('bruce')">
+            "Does Bruce know there's a new group"
+            <span class="choice-effect">+10 Wisdom · This is what Calli would ask</span>
+          </button>
+          <button class="choice-btn" onclick="ch2Choice('birthday')">
+            "Wait — what do you want for your birthday??"
+            <span class="choice-effect">+15 Lukas · Changes subject masterfully</span>
+          </button>
+          <button class="choice-btn danger" onclick="ch2Choice('defend_bruce')">
+            "Have you considered Bruce's perspective"
+            <span class="choice-effect">-30 Lukas · You absolute fool</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ch2Choice(c) {
+  let resp = '';
+  let cont = '';
+  if (c === 'mature') {
+    adjustStat('rizz',15); adjustRel('lukas',-5); adjustRel('amber',10); G.loool+=2;
+    resp = `${playerMsg('A simulated strangulation is a very mature response to playing up though')}
+      ${msgHtml('amber', 'LOOOL they have a point', '18:25')}
+      ${msgHtml('lukas', 'i hate you', '18:25')}
+      ${msgHtml('lukas', 'lol', '18:25')}
+      ${msgHtml('calli', 'pearls of wisdom from the group chat newbie 😂', '18:25')}`;
+    G.flags.cameForLukas = true;
+  } else if (c === 'bruce') {
+    adjustStat('wisdom',10); adjustRel('calli',10); adjustRel('charlotte',8);
+    resp = `${playerMsg('Does Bruce know there\'s a new group')}
+      ${msgHtml('calli', 'Loool are you on his payroll', '18:25')}
+      ${msgHtml('lukas', 'its been a bit dead so maybe not yet', '18:25')}
+      ${msgHtml('amber', 'strategic question I like it', '18:26')}`;
+  } else if (c === 'birthday') {
+    adjustStat('aura',10); adjustRel('lukas',15); adjustRel('amber',5);
+    resp = `${playerMsg('Wait — what do you want for your birthday??')}
+      ${msgHtml('lukas', 'LOOOL bless you', '18:25')}
+      ${msgHtml('amber', 'Omg yeah!! 36 sounds like a good age', '18:25')}
+      ${msgHtml('lukas', 'a perfect age for this type of drama', '18:25')}`;
+    addItem('🎂 Lukas\'s Birthday (Remembered)');
+  } else {
+    adjustRel('lukas',-30); adjustStat('aura',-15);
+    resp = `${playerMsg('Have you considered Bruce\'s perspective')}
+      ${msgHtml('lukas', 'i am making a new group', '18:25')}
+      ${msgHtml('amber', 'omg nooooo', '18:25')}
+      ${msgHtml('calli', '😬', '18:25')}
+      ${msgHtml('lukas', 'jk. but dont. dont do that.', '18:26')}`;
+    toast('⚠️ Lukas relationship damaged. You defended Bruce. Think about what you\'ve done.', 3500);
+  }
+
+  // Dice roll for the comma incident
+  const el = document.getElementById('screen-ch2');
+  el.querySelector('.panel-inner').innerHTML = `
+    ${progressMap(2)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE SECOND — THE COMMA INCIDENT</h2>
+    <div class="message-feed">${resp}</div>
+    <hr class="rule">
+    ${lk(`Things were going reasonably well until Lukas posted a message about a previous flatmate
+    called Jon, who he had attempted to drown in a washing-up basin. The message read:
+    <em>"Jon was acting it was never that deep."</em> The Lore Keeper pauses here.
+    Lukas subsequently issued a correction.`)}
+    <div class="message-feed">
+      ${msgHtml('lukas', 'Sorry I missed an important comma there', '18:31')}
+      ${msgHtml('lukas', 'Jon was acting, it was never that deep*', '18:31')}
+      ${msgHtml('lukas', 'Bad grammar incrimination', '18:32')}
+      ${msgHtml('amber', 'Looool I gotcha but yes. He was a wildcard', '18:58')}
+    </div>
+    <div class="dice-container">
+      <div class="dice-label" style="font-family:'Cinzel',serif; font-size:12px; color:var(--gold);">
+        ✦ WISDOM CHECK ✦<br>
+        <span style="font-style:italic; color:var(--ink-mid); font-size:11px;">Roll to determine how you respond to the comma revelation</span>
+      </div>
+      <div class="dice" id="dice-el" onclick="rollDiceComma()">🎲</div>
+      <div class="dice-result" id="dice-result"></div>
+    </div>`;
+}
+
+function rollDiceComma() {
+  const d = document.getElementById('dice-el');
+  const r = document.getElementById('dice-result');
+  d.classList.add('rolling');
+  let roll;
+  setTimeout(() => {
+    d.classList.remove('rolling');
+    roll = diceRoll();
+    let outcome = '';
+    if (roll >= 15) {
+      d.textContent = '🎯';
+      r.innerHTML = `<span style="color:var(--gold)">NATURAL ${roll} — CRITICAL SUCCESS</span>`;
+      outcome = 'critical';
+      adjustStat('wisdom',15); adjustRel('amber',10); adjustRel('lukas',10); G.loool+=2;
+    } else if (roll >= 8) {
+      d.textContent = '✅';
+      r.innerHTML = `<span style="color:#4a8a4a">ROLL ${roll} — SUCCESS</span>`;
+      outcome = 'success';
+      adjustStat('wisdom',8); adjustRel('lukas',5);
+    } else {
+      d.textContent = '❌';
+      r.innerHTML = `<span style="color:var(--red)">ROLL ${roll} — FAILURE</span>`;
+      outcome = 'fail';
+      adjustRel('lukas',-5);
+    }
+    setTimeout(() => showCommaOutcome(outcome, roll), 600);
+  }, 700);
+}
+
+function showCommaOutcome(outcome, roll) {
+  let resp = '';
+  if (outcome === 'critical') {
+    resp = `${playerMsg('"Jon was acting, it was never that deep*" — what does the asterisk mean')}
+      ${msgHtml('amber', 'LOOOL nobody ever addresses the asterisk', '18:59')}
+      ${msgHtml('lukas', 'the asterisk is...look. its complicated.', '18:59')}
+      ${msgHtml('calli', 'the asterisk is doing a lot of work here', '19:00')}`;
+    addItem('✳️ The Asterisk (Unresolved Mystery)');
+  } else if (outcome === 'success') {
+    resp = `${playerMsg('The comma changes everything legally speaking')}
+      ${msgHtml('lukas', 'yes. yes it does. thank you.', '18:59')}
+      ${msgHtml('amber', 'Looool the legal team has arrived', '18:59')}`;
+  } else {
+    resp = `${playerMsg('Wait did you actually drown him though')}
+      ${msgHtml('lukas', 'why would you say that', '18:59')}
+      ${msgHtml('amber', 'LOOOOOL okay but fair question', '18:59')}
+      ${msgHtml('lukas', 'the dishes were in the basin. there was a broom. it was fine.', '19:00')}`;
+  }
+  document.getElementById('screen-ch2').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(2)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE SECOND — CONCLUDED</h2>
+    <p class="chapter-sub">Roll: ${roll} · ${outcome === 'critical' ? 'Critical Success' : outcome === 'success' ? 'Success' : 'Failure'}</p>
+    <div class="message-feed">${resp}</div>
+    ${lk(`The Bruce Lore has been processed. You have survived the comma incident.
+    The fellowship has continued. Lukas has ${outcome === 'fail' ? 'mild reservations about you but will recover' : 'warmed to you further'}.
+    The asterisk remains unexplained. It will always remain unexplained.`)}
+    <div class="inventory">
+      <div class="inventory-title">✦ YOUR INVENTORY ✦</div>
+      <div class="inventory-items">${G.items.map(i=>`<span class="item">${i}</span>`).join('')}</div>
+    </div>
+    <div class="choices">
+      <button class="start-btn" onclick="renderChapter3()" style="max-width:100%;">PROCEED TO CHAPTER THE THIRD ❧</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAPTER 3 — THE COASTER & LORRAINE
+// ═══════════════════════════════════════════════════════════════
+function renderChapter3() {
+  G.chapter = 3;
+  document.getElementById('app').innerHTML = `
+  <div class="screen active" id="screen-ch3">
+    <div class="book-panel">
+      <div class="panel-inner">
+        ${progressMap(3)}
+        ${statBar()}
+        <hr class="rule">
+        <h2 class="chapter-heading">CHAPTER THE THIRD</h2>
+        <p class="chapter-sub">Time Collapses · Charlotte Has Five Pence · The Coaster of Destiny · Lorraine</p>
+        ${lk(`A month has passed, or possibly a week. Nobody in the fellowship is entirely sure.
+        Charlotte has attempted to plan a trip to London, got halfway through a sentence,
+        and concluded that dates were, broadly speaking, dead. Amber discovered she was
+        working at the same venue in the wrong month entirely. This is normal.`)}
+        <div class="message-feed">
+          ${msgHtml('charlotte', 'Me, my mum and the baby Alf will be in London in October btw', '18:37')}
+          ${msgHtml('charlotte', 'To go see the Cartier exhibition at the v and a', '18:37')}
+          ${msgHtml('charlotte', "I faltered half way through the sentence. What's the fucking point", '18:38')}
+          ${msgHtml('amber', 'Haha months don\'t exist to me anymore', '18:38')}
+          ${msgHtml('charlotte', 'I got an email the other day. I was like oh wow I\'m rich', '18:41')}
+          ${msgHtml('charlotte', '5p', '18:41')}
+          ${msgHtml('lukas', 'mines -1000', '18:41')}
+        </div>
+        <p class="narrative">You have received the five pence news. You have received the minus one thousand news. You must respond.</p>
+        <div class="choices">
+          <button class="choice-btn" onclick="ch3Choice('five_p')">
+            "Five pence is still technically a profit on nothing"
+            <span class="choice-effect">+10 Charlotte · Technically correct</span>
+          </button>
+          <button class="choice-btn" onclick="ch3Choice('commiserate')">
+            "The -1000 energy is honestly very relatable"
+            <span class="choice-effect">+10 Lukas · +8 everyone</span>
+          </button>
+          <button class="choice-btn" onclick="ch3Choice('invest')">
+            "Charlotte you should invest the five pence. That's seed funding."
+            <span class="choice-effect">+15 Rizz · Amber loses it</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ch3Choice(c) {
+  let resp = '';
+  if (c === 'five_p') {
+    adjustRel('charlotte',10); adjustStat('wisdom',8);
+    resp = `${playerMsg('Five pence is still technically a profit on nothing')}
+      ${msgHtml('charlotte', 'this is the most positive framing I\'ve ever heard', '18:42')}
+      ${msgHtml('amber', 'Looool the glass half full', '18:42')}`;
+  } else if (c === 'commiserate') {
+    adjustRel('lukas',10); adjustRel('amber',8); adjustRel('charlotte',8); G.loool++;
+    resp = `${playerMsg('The -1000 energy is honestly very relatable')}
+      ${msgHtml('lukas', 'loool the fellowship of the financially cooked', '18:42')}
+      ${msgHtml('amber', 'Looool', '18:42')}
+      ${msgHtml('charlotte', 'we are all of us five pence rich', '18:43')}`;
+    addItem('💰 Financial Solidarity (Worthless but Warm)');
+  } else {
+    adjustStat('rizz',15); adjustRel('amber',12); G.loool+=2;
+    resp = `${playerMsg('Charlotte you should invest the five pence. That\'s seed funding.')}
+      ${msgHtml('amber', 'HAHAHA seed funding yes', '18:42')}
+      ${msgHtml('charlotte', 'I\'m going to take it to Dragons Den', '18:43')}
+      ${msgHtml('lukas', 'what does five pence even buy anymore', '18:43')}`;
+  }
+
+  // Now: The Coaster
+  document.getElementById('screen-ch3').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(3)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE THIRD — THE COASTER</h2>
+    <div class="message-feed">${resp}</div>
+    <hr class="rule">
+    ${lk(`Later that evening, Calli made a discovery. Her mother, who does not drink,
+    owned a coaster depicting a red-haired woman in leopard print with a glass of Prosecco
+    beneath the words "it's always Prosecco o'clock." Calli had looked at this coaster
+    and thought of Amber so immediately and so completely that she had to tell everyone.`)}
+    <div class="message-feed">
+      ${msgHtml('calli', "Omg Amber this has just reminded me my mum has a coaster that is basically a cartoon you", '16:52')}
+      ${msgHtml('calli', "It says 'it's always Prosecco o'clock' — red headed woman, leopard print top", '16:52')}
+      ${msgHtml('amber', 'LOOOL I need to see that asap', '16:53')}
+      ${msgHtml('amber', 'I actually just poured myself a glass of Prosecco 1 second before you sent that and am wearing my leopard print slippers', '16:56')}
+      ${msgHtml('amber', 'so it is me and I am her', '16:56')}
+    </div>
+    ${lk(`The fellowship has witnessed a prophecy fulfilled in real time.
+    You are now required to respond to the coaster revelation.`)}
+    <div class="choices">
+      <button class="choice-btn" onclick="ch3Coaster('destiny')">
+        "This is not a coincidence. This is cosmically ordained."
+        <span class="choice-effect">+12 Amber · +8 all</span>
+      </button>
+      <button class="choice-btn" onclick="ch3Coaster('mum')">
+        "Wait — your mum doesn't drink and still has that coaster. That's the interesting part."
+        <span class="choice-effect">+15 Wisdom · Calli approves</span>
+      </button>
+      <button class="choice-btn" onclick="ch3Coaster('art')">
+        "Someone needs to get Amber that coaster immediately"
+        <span class="choice-effect">+15 Amber · Action-oriented</span>
+      </button>
+    </div>`;
+}
+
+function ch3Coaster(c) {
+  let resp = '';
+  if (c === 'destiny') {
+    adjustRel('amber',12); adjustRel('lukas',8); G.loool++;
+    resp = `${playerMsg('This is not a coincidence. This is cosmically ordained.')}
+      ${msgHtml('amber', 'I am LIVING for this reading of events', '16:57')}
+      ${msgHtml('lukas', 'Loooool', '16:57')}`;
+  } else if (c === 'mum') {
+    adjustStat('wisdom',15); adjustRel('calli',15);
+    resp = `${playerMsg("Wait — your mum doesn't drink and still has that coaster. That's the interesting part.")}
+      ${msgHtml('calli', 'I KNOW I have no idea why she has it', '16:57')}
+      ${msgHtml('calli', 'my mum is full of mysteries', '16:57')}
+      ${msgHtml('amber', 'Calli\'s mum understood my energy before anyone did', '16:58')}`;
+    addItem("🥂 Calli's Mum's Coaster (Unexplained)");
+  } else {
+    adjustRel('amber',15); adjustRel('calli',8);
+    resp = `${playerMsg('Someone needs to get Amber that coaster immediately')}
+      ${msgHtml('calli', 'on it', '16:57')}
+      ${msgHtml('amber', 'please. I need it. It is me.', '16:57')}
+      ${msgHtml('lukas', 'this is the most important mission the fellowship has undertaken', '16:58')}`;
+    addItem('📦 The Coaster Mission (Ongoing)');
+  }
+
+  // Lorraine
+  document.getElementById('screen-ch3').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(3)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE THIRD — LORRAINE</h2>
+    <div class="message-feed">${resp}</div>
+    ${lk(`And now we come to Lorraine. Lorraine was a cat. A photograph of Lorraine had appeared.
+    Charlotte had asked if Lorraine was still living. Amber had said she thought about Lorraine
+    more than was healthy. The fellowship had called her the people's princess.
+    A signal was sent.`)}
+    <div class="message-feed">
+      ${msgHtml('amber', 'Lorraine 📡 give us a signal gal', '11:16')}
+      ${msgHtml('charlotte', 'Lorraine r u still out there grl', '11:16')}
+    </div>
+    <p class="narrative">There is no response from Lorraine. There never is, when you send a signal like that. But you can contribute something.</p>
+    <div class="choices">
+      <button class="choice-btn" onclick="ch3Lorraine('vigil')">
+        "I am lighting a metaphorical candle for Lorraine"
+        <span class="choice-effect">+10 Charlotte · +10 Amber · Emotional intelligence</span>
+      </button>
+      <button class="choice-btn" onclick="ch3Lorraine('practical')">
+        "Has anyone tried calling the number she was posted from"
+        <span class="choice-effect">+12 Calli · Detective energy</span>
+      </button>
+      <button class="choice-btn" onclick="ch3Lorraine('faith')">
+        "Lorraine is fine. Lorraine has always been fine. Lorraine requires no signal."
+        <span class="choice-effect">+15 all · Radical optimism</span>
+      </button>
+    </div>`;
+}
+
+function ch3Lorraine(c) {
+  let resp = '';
+  if (c === 'vigil') {
+    adjustRel('charlotte',10); adjustRel('amber',10);
+    resp = `${playerMsg('I am lighting a metaphorical candle for Lorraine')}
+      ${msgHtml('charlotte', '👑 she deserves it', '11:17')}
+      ${msgHtml('amber', 'the people\'s princess deserves a vigil', '11:17')}`;
+    addItem('🕯️ Metaphorical Candle for Lorraine');
+  } else if (c === 'practical') {
+    adjustRel('calli',12); adjustStat('wisdom',8);
+    resp = `${playerMsg('Has anyone tried calling the number she was posted from')}
+      ${msgHtml('calli', 'loool detective mode activated', '11:17')}
+      ${msgHtml('amber', 'this is why you\'re in this group', '11:17')}`;
+  } else {
+    adjustRel('lukas',8); adjustRel('amber',15); adjustRel('charlotte',10); G.loool++;
+    resp = `${playerMsg('Lorraine is fine. Lorraine has always been fine. Lorraine requires no signal.')}
+      ${msgHtml('amber', 'this is the most comforting thing anyone has said', '11:17')}
+      ${msgHtml('charlotte', 'Lorraine simply IS', '11:18')}
+      ${msgHtml('lukas', 'looool the lorraine philosophy', '11:18')}`;
+    addItem("🐱 Lorraine Theology (Comforting)");
+  }
+  document.getElementById('screen-ch3').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(3)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE THIRD — CONCLUDED</h2>
+    <div class="message-feed">${resp}</div>
+    ${lk(`The fellowship has addressed the Lorraine situation as best it can.
+    The coaster has been acknowledged. The five pence has been processed.
+    Time has continued to not work properly. You are, however, embedded now.
+    The fellowship has begun to expect your messages. This is either an honour or a warning.`)}
+    <div class="inventory">
+      <div class="inventory-title">✦ YOUR INVENTORY ✦</div>
+      <div class="inventory-items">${G.items.map(i=>`<span class="item">${i}</span>`).join('')}</div>
+    </div>
+    <div class="choices">
+      <button class="start-btn" onclick="renderChapter4()" style="max-width:100%;">PROCEED TO CHAPTER THE FOURTH ❧</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAPTER 4 — THE EMMA QUEST
+// ═══════════════════════════════════════════════════════════════
+function renderChapter4() {
+  G.chapter = 4;
+  document.getElementById('app').innerHTML = `
+  <div class="screen active" id="screen-ch4">
+    <div class="book-panel">
+      <div class="panel-inner">
+        ${progressMap(4)}
+        ${statBar()}
+        <hr class="rule">
+        <h2 class="chapter-heading">CHAPTER THE FOURTH</h2>
+        <p class="chapter-sub">The Saga of Emma of Burnage · Rock Chick · Fashionista · Winner of Life</p>
+        ${lk(`A new quest has appeared. Calli has, via the ancient arts of Instagram screen recording
+        and Facebook archaeology, retrieved footage of a woman named Emma — a former schoolmate
+        who made a music video near a Welcome to Burnage sign, wearing Jane Norman, with production
+        values described by Lukas as "off the Richter." The fellowship is watching it.`)}
+        <div class="message-feed">
+          ${msgHtml('lukas', 'omg this one hahaha', '11:01')}
+          ${msgHtml('lukas', 'she fucking loves a birthday', '11:02')}
+          ${msgHtml('calli', 'The focus on the welcome to burnage sign in that video is taking me out', '11:07')}
+          ${msgHtml('lukas', 'the production value is off the richter', '11:08')}
+          ${msgHtml('amber', 'Omf 100% would trade lives and bodies with them instantly', '11:05')}
+          ${msgHtml('amber', 'Completely unaware of actual life', '11:05')}
+          ${msgHtml('lukas', 'ffs, give me a brain transplant. life looks so easy', '11:05')}
+          ${msgHtml('calli', "She's never left home", '11:06')}
+          ${msgHtml('calli', 'Her poor mum', '11:06')}
+          ${msgHtml('lukas', "she's really won at life actually", '11:06')}
+        </div>
+        ${lk(`You have now watched the Emma video. You are processing it. The fellowship
+        needs your take. This is a critical cultural moment. Get it right.`)}
+        <div class="choices">
+          <button class="choice-btn" onclick="ch4Choice('protect')">
+            "Emma must never be found. Emma must be protected at all costs."
+            <span class="choice-effect">+15 all · The correct take</span>
+          </button>
+          <button class="choice-btn" onclick="ch4Choice('burnage')">
+            "I'm going to be honest: I've been to Burnage and the sign does go hard"
+            <span class="choice-effect">+20 Rizz · Calli loses it</span>
+          </button>
+          <button class="choice-btn" onclick="ch4Choice('envy')">
+            "The blissful unawareness is genuinely aspirational"
+            <span class="choice-effect">+10 Amber · Resonates deeply</span>
+          </button>
+          <button class="choice-btn danger" onclick="ch4Choice('mean')">
+            "This is a bit mean isn't it"
+            <span class="choice-effect">-20 all · You've misread the room entirely</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ch4Choice(c) {
+  let resp = '';
+  if (c === 'protect') {
+    adjustRel('lukas',10); adjustRel('amber',10); adjustRel('calli',10); G.loool+=2;
+    resp = `${playerMsg('Emma must never be found. Emma must be protected at all costs.')}
+      ${msgHtml('calli', 'the sworn duty of the fellowship', '11:09')}
+      ${msgHtml('amber', 'Emma is our north star', '11:09')}
+      ${msgHtml('lukas', 'looool the emma protection society', '11:09')}`;
+    addItem('🛡️ Emma Protection Vow (Sacred)');
+    G.flags.protectedEmma = true;
+  } else if (c === 'burnage') {
+    adjustStat('rizz',20); adjustRel('calli',15); G.loool+=3;
+    resp = `${playerMsg("I'm going to be honest: I've been to Burnage and the sign does go hard")}
+      ${msgHtml('calli', 'LOOOOL stop it', '11:09')}
+      ${msgHtml('lukas', 'loooool the sign really does though', '11:09')}
+      ${msgHtml('amber', 'local knowledge thank you', '11:09')}`;
+    addItem('📍 Welcome to Burnage (Been There)');
+  } else if (c === 'envy') {
+    adjustRel('amber',15); adjustRel('lukas',8);
+    resp = `${playerMsg('The blissful unawareness is genuinely aspirational')}
+      ${msgHtml('amber', 'YES. I am jealous of it every day.', '11:09')}
+      ${msgHtml('lukas', 'life looks so easy from the outside of it', '11:09')}
+      ${msgHtml('charlotte', 'this is the whole thing isn\'t it. this is the whole thing.', '11:10')}`;
+  } else {
+    adjustRel('lukas',-20); adjustRel('amber',-15); adjustRel('calli',-10);
+    adjustStat('aura',-20); adjustStat('rizz',-15);
+    resp = `${playerMsg("This is a bit mean isn't it")}
+      ${msgHtml('lukas', '...', '11:09')}
+      ${msgHtml('amber', 'we love Emma', '11:09')}
+      ${msgHtml('calli', 'we are celebrating Emma', '11:09')}
+      ${msgHtml('lukas', 'leave', '11:09')}
+      ${msgHtml('lukas', 'jk. but like. reconsider your position.', '11:09')}`;
+    toast('⚠️ Critical misread. You accused the fellowship of being mean about Emma. They were celebrating Emma. There is a difference.', 4000);
+  }
+
+  document.getElementById('screen-ch4').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(4)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE FOURTH — THE PORTRAIT PROPOSAL</h2>
+    <div class="message-feed">${resp}</div>
+    <hr class="rule">
+    ${lk(`The fellowship has now proposed that Calli contact Emma for a portrait session.
+    The proposal has been received with enormous enthusiasm. You are now required to have
+    a view on whether Calli should actually contact Emma.`)}
+    <div class="message-feed">
+      ${msgHtml('amber', 'Pls ask her if she wants a shoot', '11:24')}
+      ${msgHtml('amber', 'you need to', '11:24')}
+      ${msgHtml('lukas', 'she would love to know were talking about her', '11:06')}
+      ${msgHtml('lukas', 'i bet she would be so shocked', '11:06')}
+    </div>
+    <div class="choices">
+      <button class="choice-btn" onclick="ch4Portrait('yes')">
+        "YES. Calli you must. Emma deserves updated promotional materials."
+        <span class="choice-effect">+15 Lukas/Amber · Chaotic good</span>
+      </button>
+      <button class="choice-btn" onclick="ch4Portrait('no')">
+        "I think we leave Emma exactly where she is. Some things should not be disturbed."
+        <span class="choice-effect">+15 Wisdom · Charlotte agrees vigorously</span>
+      </button>
+      <button class="choice-btn" onclick="ch4Portrait('note')">
+        "Send her the group's notes. She should know the production value discourse."
+        <span class="choice-effect">+12 Rizz · The audacity</span>
+      </button>
+    </div>`;
+}
+
+function ch4Portrait(c) {
+  let resp = '';
+  if (c === 'yes') {
+    adjustRel('lukas',15); adjustRel('amber',12); G.loool+=2;
+    resp = `${playerMsg("YES. Calli you must. Emma deserves updated promotional materials.")}
+      ${msgHtml('amber', 'someone who GETS IT', '11:25')}
+      ${msgHtml('calli', 'omg can you imagine the shoot', '11:25')}
+      ${msgHtml('lukas', 'she needs a new shoot', '11:25')}`;
+    G.flags.emmaShooting = true;
+  } else if (c === 'no') {
+    adjustStat('wisdom',15); adjustRel('charlotte',15);
+    resp = `${playerMsg('I think we leave Emma exactly where she is. Some things should not be disturbed.')}
+      ${msgHtml('charlotte', 'this is the wisest thing anyone has said', '11:25')}
+      ${msgHtml('calli', 'I mean... they\'re right', '11:25')}
+      ${msgHtml('amber', 'I hate that they\'re right', '11:25')}`;
+    addItem("🌿 Emma's Peace (Preserved)");
+    G.flags.protectedEmma = true;
+  } else {
+    adjustStat('rizz',12); adjustRel('calli',10); G.loool+=3;
+    resp = `${playerMsg("Send her the group's notes. She should know the production value discourse.")}
+      ${msgHtml('calli', 'LOOOOL absolutely not', '11:25')}
+      ${msgHtml('lukas', 'omg the notes. the notes would destroy her.', '11:25')}
+      ${msgHtml('amber', 'production value: off the richter. signed: anonymous fellowship', '11:25')}`;
+    addItem('📝 The Emma Production Notes (Unsent, Probably)');
+  }
+  document.getElementById('screen-ch4').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(4)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE FOURTH — CONCLUDED</h2>
+    <div class="message-feed">${resp}</div>
+    ${lk(`The Emma Situation has been resolved, in that it has not been resolved but everyone
+    has said things about it and moved on, which for this fellowship is resolution.
+    The Lore Keeper notes that Emma remains, as far as anyone knows, in Burnage, uncontacted,
+    living her best life, unaware that a fellowship has debated her entire existence
+    across the better part of an afternoon. This is probably for the best.`)}
+    <div class="inventory">
+      <div class="inventory-title">✦ YOUR INVENTORY ✦</div>
+      <div class="inventory-items">${G.items.map(i=>`<span class="item">${i}</span>`).join('')}</div>
+    </div>
+    <div class="choices">
+      <button class="start-btn" onclick="renderChapter5()" style="max-width:100%;">PROCEED TO THE FINAL CHAPTER ❧</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAPTER 5 — THE FINAL TEST
+// ═══════════════════════════════════════════════════════════════
+function renderChapter5() {
+  G.chapter = 5;
+  document.getElementById('app').innerHTML = `
+  <div class="screen active" id="screen-ch5">
+    <div class="book-panel">
+      <div class="panel-inner">
+        ${progressMap(5)}
+        ${statBar()}
+        <hr class="rule">
+        <h2 class="chapter-heading">CHAPTER THE FIFTH AND FINAL</h2>
+        <p class="chapter-sub">The Wisdom of Calli · The Alan Carr Defence · Your Fellowship Fate</p>
+        ${lk(`You have reached the final chapter. The fellowship has tested you.
+        The sardine has been observed. The Bruce Lore has been processed.
+        The coaster has been acknowledged. Lorraine has been honoured.
+        Emma has been discussed. Now comes the last and greatest trial:
+        someone has questioned Alan Carr.`)}
+        <div class="message-feed">
+          ${msgHtml('lukas', "https://youtube.com/shorts/[topshop-ad]", '17:45')}
+          ${msgHtml('calli', 'Looool why does he put his arm in the bin', '16:49')}
+          ${msgHtml('lukas', "It's a joke it's Alan Carr", '17:45')}
+          ${msgHtml('lukas', "Don't you ever doubt our Alan", '17:45')}
+          ${msgHtml('lukas', "I'm angry now", '17:46')}
+          ${msgHtml('lukas', "I'm making a new group", '17:46')}
+          ${msgHtml('amber', 'Loooool', '17:46')}
+          ${msgHtml('calli', 'Obvs babes lol', '17:46')}
+        </div>
+        ${lk(`Lukas has threatened to make a new group over Alan Carr. The situation is delicate.
+        You have watched the Topshop advert. You have an opinion. This opinion will define you.`)}
+        <div class="choices">
+          <button class="choice-btn" onclick="ch5Choice('defend_alan')">
+            "Lukas is correct. Alan Carr's arm in the bin is a choice and it is the right choice."
+            <span class="choice-effect">+20 Lukas · You are the right type of person</span>
+          </button>
+          <button class="choice-btn" onclick="ch5Choice('topshop')">
+            "I don't care about Alan Carr but that Topshop ad is genuinely terrible and I will not be moved on this"
+            <span class="choice-effect">+15 all · The Nugent Review is satisfied</span>
+          </button>
+          <button class="choice-btn" onclick="ch5Choice('de_escalate')">
+            "Nobody make any new groups. I need everyone to take a breath. The bin is fine."
+            <span class="choice-effect">+12 Calli/Amber · Crisis management</span>
+          </button>
+          <button class="choice-btn danger" onclick="ch5Choice('question_alan')">
+            "Actually I think the bin thing is a bit much"
+            <span class="choice-effect">-25 Lukas · You have made a terrible mistake</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ch5Choice(c) {
+  let resp = '';
+  if (c === 'defend_alan') {
+    adjustRel('lukas',20); G.loool+=3; G.flags.alanCarrDefender = true;
+    resp = `${playerMsg("Lukas is correct. Alan Carr's arm in the bin is a choice and it is the right choice.")}
+      ${msgHtml('lukas', 'FINALLY someone who gets it', '17:47')}
+      ${msgHtml('amber', 'the alliance has formed', '17:47')}
+      ${msgHtml('calli', 'two of you now. I worry.', '17:47')}`;
+    addItem("🗑️ Alan Carr's Bin Arm (Defended)");
+  } else if (c === 'topshop') {
+    adjustRel('lukas',15); adjustRel('calli',8); adjustRel('amber',8);
+    resp = `${playerMsg("I don't care about Alan Carr but that Topshop ad is genuinely terrible and I will not be moved on this")}
+      ${msgHtml('lukas', 'The Nugent Review concurs', '17:47')}
+      ${msgHtml('calli', 'saggy jacket. saggy leggings. those shoes.', '17:47')}
+      ${msgHtml('amber', 'zero stars. absolutely not.', '17:47')}`;
+    addItem('⭐ The Nugent Review: Zero Stars');
+  } else if (c === 'de_escalate') {
+    adjustRel('calli',12); adjustRel('amber',10); adjustStat('wisdom',10);
+    resp = `${playerMsg("Nobody make any new groups. I need everyone to take a breath. The bin is fine.")}
+      ${msgHtml('calli', 'thank you. a voice of reason.', '17:47')}
+      ${msgHtml('lukas', 'fine. FINE. no new group.', '17:47')}
+      ${msgHtml('amber', 'crisis averted. carry on.', '17:47')}`;
+  } else {
+    adjustRel('lukas',-25); adjustStat('rizz',-20);
+    resp = `${playerMsg("Actually I think the bin thing is a bit much")}
+      ${msgHtml('lukas', '...', '17:47')}
+      ${msgHtml('lukas', 'making a new group', '17:47')}
+      ${msgHtml('lukas', 'jk. but i am very disappointed.', '17:47')}
+      ${msgHtml('amber', 'you had one job', '17:47')}`;
+    toast("⚠️ You questioned Alan Carr's bin arm. Lukas is disappointed. This goes in the scrolls.", 4000);
+  }
+
+  // Calli's Wisdom — the final scene
+  document.getElementById('screen-ch5').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(5)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE FIFTH — THE PEARL OF WISDOM</h2>
+    <div class="message-feed">${resp}</div>
+    <hr class="rule">
+    ${lk(`And then, in the middle of everything — in between the topshop reviews and the Alan Carr
+    discourse and the general noise — Calli said something. She said it quietly.
+    She accompanied it with the elderly woman emoji. And it landed.`)}
+    <div class="message-feed">
+      ${msgHtml('calli', 'People never stop behaving like children. I think you realise that as you get older. 👵🏼', '18:26')}
+      ${msgHtml('amber', 'Our wise queen', '18:27')}
+      ${msgHtml('lukas', 'i never will thats for sure', '18:26')}
+      ${msgHtml('charlotte', 'true', '18:26')}
+    </div>
+    ${lk(`The pearl has been cast. The fellowship has received it.
+    You must now respond to Calli's wisdom. This is your final act.
+    Choose who you are in this fellowship.`)}
+    <div class="choices">
+      <button class="choice-btn" onclick="ch5Wisdom('agree')">
+        "The evidence for this is everywhere and has been, today, overwhelming"
+        <span class="choice-effect">+20 Calli · Wisdom acknowledged</span>
+      </button>
+      <button class="choice-btn" onclick="ch5Wisdom('optimist')">
+        "I prefer to think of it as sustained enthusiasm for life"
+        <span class="choice-effect">+15 Lukas/Amber · You are one of them now</span>
+      </button>
+      <button class="choice-btn" onclick="ch5Wisdom('jordan')">
+        Say nothing. Delete what you were going to say. Become Jordan.
+        <span class="choice-effect">+30 Jordan · Completion of the circle</span>
+      </button>
+    </div>`;
+}
+
+function ch5Wisdom(c) {
+  let resp = '';
+  if (c === 'agree') {
+    adjustRel('calli',20); adjustStat('wisdom',15); G.loool+=2;
+    resp = `${playerMsg('The evidence for this is everywhere and has been, today, overwhelming')}
+      ${msgHtml('calli', 'the new member gets it', '18:27')}
+      ${msgHtml('amber', 'they really do 🥺', '18:27')}
+      ${msgHtml('lukas', 'welcome to the fellowship officially', '18:27')}`;
+    G.flags.wisdomPath = 'sage';
+  } else if (c === 'optimist') {
+    adjustRel('lukas',15); adjustRel('amber',12); G.loool+=3;
+    resp = `${playerMsg("I prefer to think of it as sustained enthusiasm for life")}
+      ${msgHtml('lukas', 'LOOOOOOL yes. this.', '18:27')}
+      ${msgHtml('amber', 'sustained enthusiasm for life I\'m using that', '18:27')}
+      ${msgHtml('calli', 'you\'re all impossible', '18:27')}
+      ${msgHtml('calli', '(this is a compliment)', '18:27')}`;
+    G.flags.wisdomPath = 'chaos';
+  } else {
+    adjustRel('jordan',30); G.flags.jordanFinal = true;
+    resp = `${lk(`You type something. You consider it. You delete it. The fellowship watches the
+    "typing..." bubble appear and then vanish. Nobody says anything.
+    Then, after thirty-seven seconds:`)}
+    ${msgHtml('jordan', '👀', '18:28')}
+    ${lk(`Jordan has responded. Not with words — Jordan is beyond words.
+    Jordan has responded with eyes. You understand this completely.
+    You are, in this moment, the same person.`)}`;
+    G.flags.wisdomPath = 'void';
+    addItem('👀 Jordan\'s Emoji (Rare Artefact)');
+  }
+  setTimeout(() => renderEnding(c), 400);
+  document.getElementById('screen-ch5').querySelector('.panel-inner').innerHTML = `
+    ${progressMap(5)}
+    ${statBar()}
+    <hr class="rule">
+    <h2 class="chapter-heading">CHAPTER THE FIFTH — CONCLUDED</h2>
+    <div class="message-feed">${resp}</div>
+    ${lk(`Loading your ending... The scrolls are being prepared.`)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENDINGS
+// ═══════════════════════════════════════════════════════════════
+function renderEnding(finalChoice) {
+  setTimeout(() => {
+    // Calculate ending based on stats and flags
+    const totalRel = Object.values(G.rel).reduce((a,b) => a+b, 0);
+    let ending;
+
+    if (G.flags.wisdomPath === 'void' && G.flags.jordanAlliance) {
+      ending = 'jordan';
+    } else if (G.loool >= 8 && G.rizz >= 65) {
+      ending = 'legend';
+    } else if (G.wisdom >= 70 && G.rel.calli >= 15) {
+      ending = 'sage';
+    } else if (G.rel.lukas >= 20 && G.flags.alanCarrDefender) {
+      ending = 'lukas';
+    } else if (totalRel >= 40) {
+      ending = 'fellowship';
+    } else {
+      ending = 'fellowship';
+    }
+
+    const endings = {
+      legend: {
+        title: 'THE LEGENDARY MEMBER',
+        subtitle: 'You Have Achieved Maximum LOOOL',
+        icon: '🏆',
+        text: `The fellowship did not merely accept you. The fellowship adopted you.
+        Your LOOOLs were the finest in the group. Your sardine observation was recounted
+        at social gatherings for years afterwards. Lukas used a photo of your eye
+        as the new group profile picture. It did not have a sardine in it.
+        This was considered progress.`,
+        badges: ['🐟 Sardine Observer', '😂 LOOOL Legend', '💫 Maximum Rizz'],
+      },
+      sage: {
+        title: 'THE WISE ONE',
+        subtitle: 'Calli Has Recognised You as a Fellow Thinker',
+        icon: '🧠',
+        text: `Calli sent you a direct message three weeks after Chapter the Fifth.
+        It said simply: "you're alright you." The Lore Keeper can confirm that in
+        Calli's vocabulary, this is the equivalent of a seventeen-minute standing ovation.
+        You had seen the coaster. You had understood the asterisk. You had, above all,
+        been right about Emma. Some of us are simply built for fellowship wisdom.`,
+        badges: ['🧠 Wisdom Keeper', '🥂 Coaster Acknowledged', "✳️ Asterisk Understood"],
+      },
+      lukas: {
+        title: 'THE ALAN CARR DEFENDER',
+        subtitle: 'Lukas Has Never Made a New Group Over You',
+        icon: '🗑️',
+        text: `You defended Alan Carr's bin arm. Lukas has never forgotten this.
+        At every subsequent gathering, he mentioned it. "Remember when they defended the bin?"
+        he would say, to anyone who would listen. "That was the moment I knew."
+        The bin arm was not explained further. It did not need to be.
+        Some allegiances are forged in wheelie bins, and they are the strongest of all.`,
+        badges: ["🗑️ Alan Carr's Ally", '🎂 Birthday Remembered', '📷 Portrait Eligible'],
+      },
+      jordan: {
+        title: 'THE VANISHING ONE',
+        subtitle: 'You and Jordan Have Reached an Understanding',
+        icon: '👻',
+        text: `You became Jordan. Not entirely — you still sent occasional messages,
+        the odd "lol", a well-placed "omg." But Jordan understood you. Jordan's emoji
+        was only the beginning. Over the following months, Jordan sent you, privately,
+        a series of messages that had clearly been composed with great care.
+        All of them were deleted before you could read them.
+        You understood this completely. You deleted your reply.
+        It was, somehow, the best conversation you have ever had.`,
+        badges: ['👻 The Vanishing Ones', '👀 The Emoji Received', '🌫️ Mastered the Void'],
+      },
+      fellowship: {
+        title: 'A FULL MEMBER OF THE FELLOWSHIP',
+        subtitle: 'You Are, Genuinely, One of Them Now',
+        icon: '✦',
+        text: `You didn't do anything particularly remarkable.
+        You were just there. You responded. You LOOOLd at the right moments.
+        You were kind about Lorraine. You had a take on Emma that was, broadly,
+        the right take. And one day, without announcement, Lukas added you
+        to a new group — the group after this group, after the next thing
+        happened with the next person. He didn't explain. He just added you.
+        That was enough. That was everything.`,
+        badges: ['✦ Fellowship Member', '🐱 Lorraine Respected', '📜 In the Scrolls'],
+      },
+    };
+
+    const e = endings[ending];
+    const relSummary = Object.entries(G.rel).map(([k,v]) => {
+      const c = CHARS[k]; const pct = Math.max(0, Math.min(100, 50+v));
+      const bar = Math.round(pct/10);
+      return `<div class="char-stat-row">
+        <span style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold);">${c.emoji} ${c.name}</span>
+        <span style="font-size:11px;color:var(--ink-mid);">${'◆'.repeat(bar)}${'◇'.repeat(10-bar)} ${pct}%</span>
+      </div>`;
+    }).join('');
+
+    document.getElementById('app').innerHTML = `
+    <div class="screen active" id="screen-ending">
+      <div class="book-panel">
+        <div class="panel-inner">
+          <div class="title-ornament scroll-reveal">✦ ✧ ✦ ✧ ✦</div>
+          <div style="font-size:52px;text-align:center;margin:12px 0;" class="scroll-reveal">${e.icon}</div>
+          <h2 class="ending-title scroll-reveal">${e.title}</h2>
+          <p class="title-sub scroll-reveal">${e.subtitle}</p>
+          <hr class="rule">
+          <div class="ending-verse scroll-reveal">
+            ${e.text.split('\n').map(l => l.trim() ? `<p style="margin:6px 0;">${l.trim()}</p>` : '').join('')}
+          </div>
+          <hr class="rule">
+          <div class="text-center scroll-reveal" style="margin:14px 0;">
+            ${e.badges.map(b => `<span class="badge"><span class="badge-icon">${b.split(' ')[0]}</span>${b.split(' ').slice(1).join(' ')}</span>`).join('')}
+          </div>
+          <hr class="rule">
+          <div class="highlight-box scroll-reveal">
+            <div class="inventory-title">✦ FINAL FELLOWSHIP STANDINGS ✦</div>
+            <div style="margin-top:8px;">${relSummary}</div>
+            <div style="margin-top:10px;" class="char-stat-row">
+              <span style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold);">😂 TOTAL LOOOL</span>
+              <span style="font-size:11px;color:var(--ink-mid);">${G.loool} recorded</span>
+            </div>
+          </div>
+          <div class="highlight-box scroll-reveal">
+            <div class="inventory-title">✦ YOUR FINAL INVENTORY ✦</div>
+            <div class="inventory-items" style="margin-top:8px;">
+              ${G.items.map(i=>`<span class="item">${i}</span>`).join('') || '<span class="item">Nothing. You passed through like smoke.</span>'}
+            </div>
+          </div>
+          <div class="ending-verse" style="margin:20px 0; font-size:13px;">
+            <em>Here endeth the Chronicle of the Fellowship of the Rizz.</em><br>
+            <em>The sardine was never explained.</em><br>
+            <em>It did not need to be.</em>
+          </div>
+          <div class="title-ornament">✦ ✧ ✦ ✧ ✦</div>
+          <div class="choices" style="margin-top:20px;">
+            <button class="start-btn" onclick="resetGame()" style="max-width:100%;">PLAY AGAIN · BEGIN A NEW CHRONICLE</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }, 1200);
+}
+
+function resetGame() {
+  G.playerName = ''; G.playerClass = null;
+  G.aura = 50; G.wisdom = 50; G.rizz = 50;
+  G.rel = { lukas:0, calli:0, amber:0, charlotte:0, jordan:0 };
+  G.items = []; G.chapter = 0; G.scene = 0;
+  G.flags = {}; G.loool = 0;
+  renderTitle();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+buildStarfield();
+renderTitle();
+</script>
+</body>
+</html>
